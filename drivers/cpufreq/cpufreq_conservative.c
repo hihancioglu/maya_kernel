@@ -18,8 +18,8 @@
 #define DEF_FREQUENCY_UP_THRESHOLD		(95)
 #define DEF_FREQUENCY_DOWN_THRESHOLD		(30)
 #define DEF_FREQUENCY_STEP			(5)
-#define DEF_SAMPLING_DOWN_FACTOR		(1)
-#define MAX_SAMPLING_DOWN_FACTOR		(10)
+#define DEF_SAMPLING_DOWN_FACTOR		(3)
+#define MAX_SAMPLING_DOWN_FACTOR		(20)
 #define TOUCH_LOAD_DURATION			(1000)
 #define MICRO_FREQUENCY_MIN_SAMPLE_RATE	(10000)
 
@@ -97,8 +97,16 @@ static void cs_check_cpu(int cpu, unsigned int load)
 	}
 
 	/* if sampling_down_factor is active break out early */
+	if (touch) {
+		unsigned int sampling_down_factor = cs_tuners->sampling_down_factor;
+		sampling_down_factor *= 2;
+
+	if (++dbs_info->down_skip < sampling_down_factor)
+		return;
+	} else {
 	if (++dbs_info->down_skip < cs_tuners->sampling_down_factor)
 		return;
+	}
 	dbs_info->down_skip = 0;
 
 	/* Check for frequency decrease */
