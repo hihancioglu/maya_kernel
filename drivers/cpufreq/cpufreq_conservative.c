@@ -19,6 +19,7 @@
 #define DEF_FREQUENCY_DOWN_THRESHOLD		(30)
 #define DEF_FREQUENCY_STEP			(5)
 #define DEF_SAMPLING_DOWN_FACTOR		(3)
+#define DEF_TOUCH_MULT_FACTOR			(3)
 #define MAX_SAMPLING_DOWN_FACTOR		(20)
 #define TOUCH_LOAD_DURATION			(1000)
 #define MICRO_FREQUENCY_MIN_SAMPLE_RATE	(10000)
@@ -71,7 +72,7 @@ static void cs_check_cpu(int cpu, unsigned int load)
 		dbs_info->cdbs.deferred_periods = UINT_MAX;
 	}
 
-	if (jiffies_to_msecs(jiffies - touch_jiffies) >
+	if (jiffies_to_msecs(jiffies - touch_jiffies) <
 				cs_tuners->touch_load_duration)
 		touch = true;
 
@@ -85,7 +86,7 @@ static void cs_check_cpu(int cpu, unsigned int load)
 		if (dbs_info->requested_freq == policy->max)
 			return;
 		if (touch)
-			freq_step *= 2;
+			freq_step *= cs_tuners->touch_mult_factor;
 		dbs_info->requested_freq += get_freq_target(freq_step, policy);
 
 		if (dbs_info->requested_freq > policy->max)
@@ -99,7 +100,7 @@ static void cs_check_cpu(int cpu, unsigned int load)
 	/* if sampling_down_factor is active break out early */
 	if (touch) {
 		unsigned int sampling_down_factor = cs_tuners->sampling_down_factor;
-		sampling_down_factor *= 2;
+		sampling_down_factor *= cs_tuners->touch_mult_factor;
 
 	if (++dbs_info->down_skip < sampling_down_factor)
 		return;
@@ -192,6 +193,21 @@ static ssize_t store_sampling_down_factor(struct dbs_data *dbs_data,
 
 	cs_tuners->sampling_down_factor = input;
 	return count;
+}
+
+static ssize_t store_touch_mult_factor(struct dbs_data *dbs_data,
+                const char *buf, size_t count)
+{
+        struct cs_dbs_tuners *cs_tuners = dbs_data->tuners;
+        unsigned int input;
+        int ret;
+        ret = sscanf(buf, "%u", &input);
+
+        if (ret != 1)
+                return -EINVAL;
+
+        cs_tuners->touch_mult_factor = input;
+        return count;
 }
 
 static ssize_t store_sampling_rate(struct dbs_data *dbs_data, const char *buf,
@@ -313,6 +329,7 @@ static ssize_t store_touch_load_duration(struct dbs_data *dbs_data,
 
 show_store_one(cs, sampling_rate);
 show_store_one(cs, sampling_down_factor);
+show_store_one(cs, touch_mult_factor);
 show_store_one(cs, up_threshold);
 show_store_one(cs, down_threshold);
 show_store_one(cs, ignore_nice_load);
@@ -322,6 +339,7 @@ declare_show_sampling_rate_min(cs);
 
 gov_sys_pol_attr_rw(sampling_rate);
 gov_sys_pol_attr_rw(sampling_down_factor);
+gov_sys_pol_attr_rw(touch_mult_factor);
 gov_sys_pol_attr_rw(up_threshold);
 gov_sys_pol_attr_rw(down_threshold);
 gov_sys_pol_attr_rw(ignore_nice_load);
@@ -333,6 +351,7 @@ static struct attribute *dbs_attributes_gov_sys[] = {
 	&sampling_rate_min_gov_sys.attr,
 	&sampling_rate_gov_sys.attr,
 	&sampling_down_factor_gov_sys.attr,
+	&touch_mult_factor_gov_sys.attr,
 	&up_threshold_gov_sys.attr,
 	&down_threshold_gov_sys.attr,
 	&ignore_nice_load_gov_sys.attr,
@@ -350,6 +369,7 @@ static struct attribute *dbs_attributes_gov_pol[] = {
 	&sampling_rate_min_gov_pol.attr,
 	&sampling_rate_gov_pol.attr,
 	&sampling_down_factor_gov_pol.attr,
+	&touch_mult_factor_gov_pol.attr,
 	&up_threshold_gov_pol.attr,
 	&down_threshold_gov_pol.attr,
 	&ignore_nice_load_gov_pol.attr,
@@ -378,6 +398,7 @@ static int cs_init(struct dbs_data *dbs_data)
 	tuners->up_threshold = DEF_FREQUENCY_UP_THRESHOLD;
 	tuners->down_threshold = DEF_FREQUENCY_DOWN_THRESHOLD;
 	tuners->sampling_down_factor = DEF_SAMPLING_DOWN_FACTOR;
+	tuners->touch_mult_factor = DEF_TOUCH_MULT_FACTOR;
 	tuners->ignore_nice_load = 0;
 	tuners->freq_step = DEF_FREQUENCY_STEP;
 	tuners->touch_load_duration = TOUCH_LOAD_DURATION;
