@@ -87,7 +87,8 @@ static void check_dsi_ctrl_status(struct work_struct *work)
 	if (!pdata->panel_info.cont_splash_esd_rdy) {
 		pr_warn("%s: Splash not complete, reschedule check status\n",
 			__func__);
-		schedule_delayed_work(&pdsi_status->check_status,
+		queue_delayed_work(system_power_efficient_wq,
+				&pdsi_status->check_status,
 				msecs_to_jiffies(interval));
 		return;
 	}
@@ -122,7 +123,8 @@ static void check_dsi_ctrl_status(struct work_struct *work)
 
 	if (mdss_fb_is_power_on_interactive(pdsi_status->mfd)) {
 		if (ret > 0) {
-			schedule_delayed_work(&pdsi_status->check_status,
+			queue_delayed_work(system_power_efficient_wq,
+				&pdsi_status->check_status,
 				msecs_to_jiffies(interval));
 		} else {
 			mdss_fb_send_panel_reset_event(pdsi_status->mfd);
@@ -167,7 +169,8 @@ static int fb_event_callback(struct notifier_block *self,
 
 		switch (*blank) {
 		case FB_BLANK_UNBLANK:
-			schedule_delayed_work(&pdata->check_status,
+			queue_delayed_work(system_power_efficient_wq,
+				&pdata->check_status,
 				msecs_to_jiffies(interval));
 			break;
 		case FB_BLANK_POWERDOWN:
